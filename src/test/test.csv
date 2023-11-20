@@ -1,0 +1,3 @@
+birthDate,subsidiary,points,address/zipCode,address/country,address/state,address/city,address/street,fullName,email,verifiedEmail
+1992-09-20,540,0,2000,country Prueba,prueba state,Test,Fake 123,Probando ahora 1,probando2@hola.com,true
+1991-05-17,541,20,2000,country Prueba,prueba state,City Fake,Street Fake 123,Juan Perez,test@hola.com,false

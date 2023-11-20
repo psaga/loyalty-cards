@@ -1,0 +1,132 @@
+service: loyalty-cards
+
+frameworkVersion: "3"
+
+plugins:
+  - serverless-esbuild
+  - serverless-dynamodb
+  - serverless-offline
+  - serverless-dotenv-plugin
+
+useDotenv: true
+
+custom:
+  serverless-offline:
+    httpPort: 4000
+  dynamodb:
+    start:
+      port: 5000
+      inMemory: true
+      migrate: true
+    stages:
+      - development
+  dotenv:
+    path: .env.${self:provider.stage}
+
+provider:
+  stage: ${opt:stage, 'development'}
+  name: aws
+  runtime: nodejs18.x
+  region: ${env:REGION}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: 
+            - "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${env:DYNAMODB_TABLE}*"
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+          Resource: 
+            - 'arn:aws:s3:::${env:S3_GENERATE_LOYALTY_CARDS_BUCKET}/*'
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+            - sqs:GetQueueUrl
+          Resource:
+            - Fn::GetAtt: [ CardCSVQueue, Arn ]
+
+functions:
+  create:
+    handler: ./src/handlers/create.handler
+    events:
+      - http:
+          path: loyalty-cards
+          method: post
+          cors: true
+
+  list:
+    handler: ./src/handlers/list.handler
+    events:
+      - http:
+          path: loyalty-cards
+          method: get
+          cors: true
+        
+  get:
+    handler: ./src/handlers/get.handler
+    events:
+      - http:
+          path: loyalty-cards/{id}
+          method: get
+          cors: true
+  s3-to-sqs:
+    handler: ./src/handlers/s3-to-sqs.handler
+    events:
+      - s3:
+          bucket: ${env:S3_GENERATE_LOYALTY_CARDS_BUCKET}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: uploads/
+            - suffix: .csv
+  sqs-to-create:
+    handler: ./src/handlers/sqs-to-create.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - CardCSVQueue
+              - Arn
+resources:
+  Resources:
+    LoyaltyCardsTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: gsi1pk
+            AttributeType: S
+          - AttributeName: gsi1sk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: GSI1
+            KeySchema:
+              - AttributeName: gsi1pk
+                KeyType: HASH
+              - AttributeName: gsi1sk
+                KeyType: RANGE      
+            Projection:
+              ProjectionType: 'ALL'
+            ProvisionedThroughput:
+                ReadCapacityUnits: 5
+                WriteCapacityUnits: 5         
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${env:DYNAMODB_TABLE}
+    CardCSVQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${env:SQS_QUEUE_NAME}
