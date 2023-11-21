@@ -8,7 +8,6 @@ import middify from '../utils/middify';
 export const handler = middify(async (event: APIGatewayProxyEvent) => {
   try {
     const data = event.body ? JSON.parse(event.body) : null;
-    console.log('heree')
     const createLoyaltyCardDto = mapperBodyToCreateLoyaltyCardDto(data);
     if (!createLoyaltyCardDto.fullName) {
       throw new Error('The field fullName is required');
