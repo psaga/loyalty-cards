@@ -27,6 +27,6 @@ export const getParameterSchema = z.object({
 export const listQueryStringSchema = z.object({
     lastEvaluatedKey: z.string().optional(),
     fullName: z.string().max(100).regex(/^[A-Za-z ]+$/).optional(),
-    verifiedEmail: z.number().optional(),
+    verifiedEmail: z.string().optional(),
     gender: z.string().optional()
 }).nullable();
