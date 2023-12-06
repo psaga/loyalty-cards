@@ -12,7 +12,7 @@ export const createBodySchema = z.object({
     fullName: z.string({
         required_error: "fullName is required",
     }).max(100).regex(/^[A-Za-z ]+$/),
-    birthDate: z.string().max(10).regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    birthDate: z.string().max(10).regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'The date format should be yyyy-mm-dd' }).optional(),
     address: addressSchema.optional(),
     email: z.string().regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/),
     subsidiary: z.number().optional(),
