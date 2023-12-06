@@ -1,14 +1,12 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import LoyaltyCard from "../models/loyalty-card";
-import { PutCommand, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { GetAllLoyaltyCardsResponse, FiltersParams } from "../utils/types";
 import CreateLoyaltyCard from "../dtos/create-loyalty-card-dto";
 import { mapperIdArrayToCardId, mapperLoyaltyCardDtoToLoyaltyCard, mapperLoyaltyCardsDtoToLoyaltyCard } from "../utils/mappers";
+import DynamoDBService from "./dynamodb";
 
 class LoyaltyCardService {
   constructor(
-    private readonly docClient: DynamoDBClient,
-    private readonly tableName: string
+    private readonly dynamoDbService: DynamoDBService
   ) { }
 
   async getAllLoyaltyCards(filters: FiltersParams, lastEvaluatedKeyObject?: Record<string, any>): Promise<GetAllLoyaltyCardsResponse> {
@@ -32,52 +30,35 @@ class LoyaltyCardService {
       expressionAttributeValues[':genderValue'] = filters.gender;
     }
 
-    const filterExpressionJoined = filterExpressions.join(' AND ');
+    const filterExpressionJoined = filterExpressions.length ? filterExpressions.join(' AND ') : '';
 
-
-    const command = new QueryCommand({
-      TableName: this.tableName,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'gsi1pk = :gsi1pValue',
-      ...(lastEvaluatedKeyObject && { ExclusiveStartKey: lastEvaluatedKeyObject }),
-      ...(filterExpressions.length && { FilterExpression: filterExpressionJoined }),
-      ExpressionAttributeValues: expressionAttributeValues,
-    });
-    const commandResponse = await this.docClient.send(command);
+    const response = await this.dynamoDbService.getAll(lastEvaluatedKeyObject, filterExpressionJoined, expressionAttributeValues);
 
     return {
-      Items: mapperLoyaltyCardsDtoToLoyaltyCard(commandResponse.Items),
-      LastEvaluatedKey: commandResponse.LastEvaluatedKey
+      Items: mapperLoyaltyCardsDtoToLoyaltyCard(response.Items),
+      LastEvaluatedKey: response.LastEvaluatedKey
     }
   }
 
-  async getLoyaltyCard(id: string): Promise<LoyaltyCard> {
-    const command = new GetCommand({
-      TableName: this.tableName,
-      Key: {
-        id,
-      }
-    });
-    const result = await this.docClient.send(command);
-    return mapperLoyaltyCardDtoToLoyaltyCard(result.Item);
+  async getLoyaltyCard(id: string): Promise<LoyaltyCard | null> {
+    const response = await this.dynamoDbService.getById(id);
+    if(!response.Item) return null
+    return mapperLoyaltyCardDtoToLoyaltyCard(response.Item);
   }
 
   async createLoyaltyCard(loyaltyCardDto: CreateLoyaltyCard, tries: number = 5): Promise<string | void> {
     try {
       const timestamp = new Date().getTime()
       const id = generateRandomID();
-      const createCommand = new PutCommand({
-        TableName: this.tableName,
-        Item: {
-          id,
-          ...loyaltyCardDto,
-          gsi1pk: 'TYPE:HOLDER',
-          gsi1sk: loyaltyCardDto.fullName,
-          updatedAt: timestamp,
-          createdAt: timestamp,
-        }
-      })
-      await this.docClient.send(createCommand);
+      const item = {
+        id,
+        ...loyaltyCardDto,
+        gsi1pk: 'TYPE:HOLDER',
+        gsi1sk: loyaltyCardDto.fullName,
+        updatedAt: timestamp,
+        createdAt: timestamp
+      }
+      await this.dynamoDbService.create(item);
       console.info(`Loyalty card: ${id} created successfully`);
       return id;
     } catch (error) {
