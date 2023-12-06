@@ -42,6 +42,7 @@ export const mapperSqsBodyToCreateLoyaltyCardDto = (data: any) => {
     
     data.address = addressObject;
     data.verifiedEmail = data.verifiedEmail === 'true';
+    data.subsidiary = parseInt(data.subsidiary);
     return mapperBodyToCreateLoyaltyCardDto(data);
 }
 

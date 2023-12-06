@@ -10,8 +10,8 @@ export const handler: Handler = async (event: SQSEvent) => {
     for (const record of event.Records) {
       const messageAttributes: SQSMessageAttributes = record.messageAttributes;
       const parsedBody = JSON.parse(record.body);
-      createBodySchema.parse(parsedBody)
       const createLoyaltyCardDto = mapperSqsBodyToCreateLoyaltyCardDto(parsedBody);
+      createBodySchema.parse(createLoyaltyCardDto);
       const loyaltyCardId = await loyaltyCardService.createLoyaltyCard(createLoyaltyCardDto);
       console.info(`Cards from ${messageAttributes.File.stringValue} Idx: ${messageAttributes.Index.stringValue} created as ${loyaltyCardId}`);
     }

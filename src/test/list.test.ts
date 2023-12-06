@@ -13,7 +13,7 @@ describe('List Handler', () => {
 
     it('should get a list of loyalty cards', async () => {
         mockDynamoClient.on(QueryCommand).resolves({ Items: [] });
-        const result = await testFn(handler).event({}).expectResult();
+        const result = await testFn(handler).event({queryStringParameters: null}).expectResult();
         const responseBody = JSON.parse(result.body);
 
         expect(result.statusCode).toBe(200);
